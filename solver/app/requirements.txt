@@ -1,0 +1,4 @@
+pyomo[appsi] 
+highspy
+uvicorn
+fastapi[standard]

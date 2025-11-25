@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TransportType {
+  transit
+  driving
+  invalid
+}
+
+/// qualifications
+model Qualification {
+  id                  Int    @id @default(autoincrement())
+  qualification_text  String @db.VarChar(10)
+  qualification_value Int
+
+  children   Child[]
+  assistants Assistant[]
+
+  @@map("qualifications")
+}
+
+/// address
+model Address {
+  id            Int    @id @default(autoincrement())
+  street        String @db.VarChar(255)
+  street_number String @db.VarChar(20)
+  city          String @db.VarChar(255)
+  zip_code      String @db.VarChar(20)
+  latitude      Float  
+  longitude     Float  
+  place_id      String @default("") @db.VarChar(255)
+
+  children    Child[]
+  assistants  Assistant[]
+  originTrips DistanceMatrix[]      @relation("OriginAddress")
+  destTrips   DistanceMatrix[]      @relation("DestinationAddress")
+
+  @@unique([street, street_number, city, zip_code], name: "unique_address")
+  @@map("address")
+}
+
+/// children
+model Child {
+  id                     Int     @id @default(autoincrement())
+  first_name             String  @db.VarChar(255)
+  family_name            String  @db.VarChar(255)
+  required_qualification Int?
+  requested_hours        Float   @default(0.0)
+  address_id             Int
+  created_at             DateTime @default(now()) 
+  updated_at             DateTime @updatedAt 
+
+  address       Address       @relation(fields: [address_id], references: [id], onDelete: Cascade)
+  qualification Qualification? @relation(fields: [required_qualification], references: [id])
+  pairs         Pair[]
+
+  @@unique([first_name, family_name, address_id], name: "unique_name_family_address")
+  @@map("children")
+}
+
+/// assistants
+model Assistant {
+  id            Int     @id @default(autoincrement())
+  first_name    String  @db.VarChar(255)
+  family_name   String  @db.VarChar(255)
+  qualification Int?
+  min_capacity  Float   @default(0.0)
+  max_capacity  Float   @default(0.0)
+  address_id    Int
+  has_car       Boolean
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  address       Address       @relation(fields: [address_id], references: [id])
+  qualificationRel Qualification? @relation(fields: [qualification], references: [id])
+  pairs         Pair[]
+
+  @@unique([first_name, family_name, address_id], name: "unique_name_family_address")
+  @@map("assistants")
+}
+
+/// pairs (child–assistant assignments)
+model Pair {
+  id           Int  @id @default(autoincrement())
+  child_id     Int
+  assistant_id Int
+  created_at   DateTime @default(now()) 
+  updated_at   DateTime @updatedAt 
+
+  child     Child     @relation(fields: [child_id], references: [id], onDelete: Cascade)
+  assistant Assistant @relation(fields: [assistant_id], references: [id], onDelete: Cascade)
+
+  @@unique([child_id, assistant_id], name: "unique_pair")
+  @@map("pairs")
+}
+
+/// distance_matrix
+model DistanceMatrix {
+  id                     Int           @id @default(autoincrement())
+  origin_address_id      Int
+  destination_address_id Int
+  transport_type         TransportType
+  distance               Float
+  travel_time            Float
+  created_at             DateTime @default(now()) 
+  updated_at             DateTime @updatedAt 
+
+  origin_address      Address @relation("OriginAddress", fields: [origin_address_id], references: [id], onDelete: Cascade)
+  destination_address Address @relation("DestinationAddress", fields: [destination_address_id], references: [id], onDelete: Cascade)
+
+  @@unique([origin_address_id, destination_address_id, transport_type], name: "unique_trip")
+  @@map("distance_matrix")
+}
+
+/// api_keys
+model ApiKey {
+  id    String @id @db.VarChar(255)
+  apiKey String @db.VarChar(255)
+
+  @@map("api_keys")
+}
+
+/// lp_weights
+model LpWeight {
+  id    String @id @db.VarChar(255)
+  value Float
+
+  @@map("lp_weights")
+}
